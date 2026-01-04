@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import random
 import numpy as np
-import torchattacks
 import torch.distributions as dist
 
 seed = 0
@@ -28,47 +27,6 @@ def corruption_uniform(model, x, y, epsilon=8/255, attack=False):
         logits = model(x_adv)
         loss = F.cross_entropy(logits, y, reduction="mean")
         return loss, logits
-
-
-def corruption_gaussian(model, x, y, epsilon=8/255, attack=False):
-    x_adv = x.detach().clone()
-    x_adv = x_adv + torch.clamp(torch.randn_like(x_adv), -epsilon, epsilon)
-    x_adv = torch.clamp(x_adv, min=0, max=1).detach()
- 
-    if attack:
-        return x_adv
-    else:
-        logits = model(x_adv)
-        loss = F.cross_entropy(logits, y, reduction="mean")
-        return loss, logits
-
-
-def corruption_laplace(model, x, y, epsilon=8/255, attack=False):
-    # lap = dist.Laplace(loc=torch.tensor(0.0, device=x.device), scale=torch.tensor(epsilon, device=x.device))
-    lap = dist.Laplace(loc=torch.tensor(0.0, device=x.device), scale=torch.tensor(1.0, device=x.device))
-
-    x_adv = x.detach().clone()
-    x_adv = x_adv + torch.clamp(lap.sample(x_adv.shape).to(x.device), -epsilon, epsilon)
-    x_adv = torch.clamp(x_adv, min=0, max=1).detach()
- 
-    if attack:
-        return x_adv
-    else:
-        logits = model(x_adv)
-        loss = F.cross_entropy(logits, y, reduction="mean")
-        return loss, logits
-
-
-def ERM_DataAug(model, x, y, epsilon=8/255, sample_num = 20):
-    loss = 0 
-    for _ in range(sample_num):
-        x_adv = sample_delta(x, epsilon)
-        logits = model(x_adv)
-        loss += F.cross_entropy(logits, y, reduction="mean")
-
-    loss = loss / float(sample_num)
-    return loss, logits
-
 
 
 def fgsm_loss(model, x, y, epsilon=8/255):
@@ -180,7 +138,7 @@ def mart_loss(model,x, y, optimizer, step_size=2/255, epsilon=8/255, attack_step
     logits = model(x)
     logits_adv = model(x_adv)
     adv_probs = F.softmax(logits_adv, dim=1)
-    tmp1 = torch.argsort(adv_probs, dim=1)[:, -2:]  # [batch_size, 2]
+    tmp1 = torch.argsort(adv_probs, dim=1)[:, -2:] 
     new_y = torch.where(tmp1[:, -1] == y, tmp1[:, -2], tmp1[:, -1])
     loss_adv = F.cross_entropy(logits_adv, y) + F.nll_loss(torch.log(1.0001 - adv_probs + 1e-12), new_y)
     nat_probs = F.softmax(logits, dim=1)
@@ -207,7 +165,7 @@ def CVaR_loss(model, x, y, optimizer, epsilon=8/255, t_step_size=1.0, attack_ste
             logits = model(perturbed_x)
             curr_loss = F.cross_entropy(logits, y, reduction='none')  
             indicator_sum += torch.where(curr_loss > ts, torch.ones_like(ts), torch.zeros_like(ts))
-            cvar_loss += F.relu(curr_loss - ts)  # only keep when loss > ts
+            cvar_loss += F.relu(curr_loss - ts)  
 
         indicator_avg = indicator_sum / M
         cvar_loss = (ts + cvar_loss / (M * beta)).mean()

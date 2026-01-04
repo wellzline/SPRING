@@ -11,8 +11,8 @@ from tqdm import tqdm
 import logging
 from cifar_model import *
 from utils import data_prepare
-from attack_algorithms import (corruption_laplace, corruption_gaussian, ERM_DataAug, pgd_loss, fgsm_loss, trades_loss, mart_loss, corruption_uniform, CVaR_loss, PR, fast_PR_2_grad)
-from evaluate import  evaluate_aa, evaluate_PGD, evaluate_PR, evaluate_cw, cw_attack
+from attack_algorithms import (pgd_loss, fgsm_loss, trades_loss, mart_loss, corruption_uniform, CVaR_loss, PR, fast_PR_2_grad)
+from evaluate import  evaluate_PGD, evaluate_PR, evaluate_cw
 seed = 0
 random.seed(seed)
 np.random.seed(seed)
@@ -24,7 +24,6 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser(description="Configuration for Training and Evaluation")
 
-    # General settings
     parser.add_argument('--dataset', type=str, default='CIFAR10', choices=['CINIC10','MNIST','CIFAR10', 'CIFAR100', 'svhn', 'TinyImageNet'], help='training dataset')
     parser.add_argument('--data_root', type=str, default='./dataset/cifar_10', help='Path to dataset root')
     parser.add_argument('--model_name', type=str, default='resnet18', help='Model name (e.g., resnet18, WRN)')
@@ -39,7 +38,6 @@ def get_args():
     parser.add_argument('--distribute', type=str, default='rotation', choices=["rotation", "translation", "scaling", "hue", "saturation", "brightness_contrast", "gaussian_blur"], help='stage of running')
 
 
-    # Training settings
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--weight_decay', type=float, default=0.0005, help='Weight decay')
@@ -49,7 +47,7 @@ def get_args():
     parser.add_argument('--phase', type=str, default='train', choices=['train', 'eval'], help='stage of running')
 
     # Attack settings
-    parser.add_argument('--attack', type=str, default='PGD', choices=['fast_PR_2_grad', 'corruption_laplace', 'corruption_gaussian', 'pgd_origin','ERM_DataAug','KL', 'PGD_uniform', 'Clean', 'PGD', 'FGSM', 'PR', 'Corruption','TRADES', 'MART',], help='Type of attack')
+    parser.add_argument('--attack', type=str, default='PGD', choices=['fast_PR_2_grad', 'pgd_origin','ERM_DataAug','KL', 'PGD_uniform', 'Clean', 'PGD', 'FGSM', 'PR', 'Corruption','TRADES', 'MART',], help='Type of attack')
     parser.add_argument('--beta', type=float, default=6.0, help='trades balanced parameter')
     parser.add_argument('--decision_step', type=float, default=0.0, help='efficient trades decision_step')
     parser.add_argument('--attack_steps', type=int, default=7, help='Number of attack steps')
@@ -175,16 +173,6 @@ def train(args, save_path):
             elif args.attack == 'Corruption':
                 loss, logits = corruption_uniform(model, x, y, epsilon=args.attack_eps/255)
             
-            elif args.attack == 'corruption_gaussian':
-                loss, logits = corruption_gaussian(model, x, y, epsilon=args.attack_eps/255)
-            
-            elif args.attack == 'corruption_laplace':
-                loss, logits = corruption_laplace(model, x, y, epsilon=args.attack_eps/255)
-                    
-            
-            elif args.attack == 'ERM_DataAug':
-                loss, logits = ERM_DataAug(model, x, y, epsilon=args.attack_eps/255, sample_num = 20)
-
             elif args.attack == 'FGSM':
                 loss, logits = fgsm_loss(model, x, y, epsilon=args.attack_eps/255)
 
@@ -241,7 +229,7 @@ def train(args, save_path):
 
         if epoch + 1 in list(range(10, args.epochs + 1, 10)):
             eval_model(epoch + 1)
-            if epoch + 1 in [50, 60, 80, 90, 100]:
+            if epoch + 1 in [80, 90, 100]:
                 save_network(save_path, epoch + 1)
 
 

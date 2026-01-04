@@ -10,7 +10,7 @@ import torch.distributions as dist
 import statistics
 import random
 from utils import data_prepare
-from attack_algorithms import (pgd_loss, fgsm_loss, trades_loss, mart_loss, CVaR_loss)
+from attack_algorithms import (pgd_loss)
 from tiny_imagenet import TinyImageNet
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
@@ -102,8 +102,6 @@ def get_dataloader(args):
         test_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1000, shuffle=False, num_workers=8)
 
     return test_loader, train_loader
-
-
 
 
 
@@ -245,14 +243,13 @@ def run_prob(x, y, model, eps, sample_id, distribute, GE):
 
         for i in range(count_iterations):
             prior = distribution[distribute]
-            x = prior.sample(torch.Size([count_particles]))  # torch.Size([batch, 3, 32, 32])
+            x = prior.sample(torch.Size([count_particles])) 
             
             x = torch.clamp(x, x_sample - eps, x_sample + eps)
             x = torch.clamp(x, min=x_min.view(3, 1, 1), max=x_max.view(3, 1, 1))
-            # x = torch.clamp(x, min=x_min.view(1, 1, 1), max=x_max.view(1, 1, 1))
             
-            s_x = prop(x).squeeze(-1)   # print(s_x.shape)  torch.Size([10])
-            count_above += int((s_x >= 0).float().sum().item())  # the number of AE
+            s_x = prop(x).squeeze(-1)  
+            count_above += int((s_x >= 0).float().sum().item()) 
             count_total += count_particles
 
         return count_above, count_total
@@ -260,24 +257,8 @@ def run_prob(x, y, model, eps, sample_id, distribute, GE):
     x_sample = x[sample_id]  
     x_class = y[sample_id]
     
-    # prior_uni = dist.Uniform(  # MNIST
-    #     low=torch.max(x_sample - eps * (x_max - x_min).view(1, 1, 1), x_min.view(1, 1, 1)),
-    #     high=torch.min(x_sample + eps * (x_max - x_min).view(1, 1, 1), x_max.view(1, 1, 1))
-    # )
-    
-    # prior_norm = dist.Normal(
-    #     loc=x_sample,  
-    #     scale=eps * (x_max - x_min).view(1, 1, 1)  
-    # )
 
-    # prior_lap = dist.Laplace(
-    #     loc=x_sample,  
-    #     scale=eps * (x_max - x_min).view(1, 1, 1)  
-    # )
-
-
-
-    prior_uni = dist.Uniform(   # CIFAR, SVHN, Tiny-ImageNet
+    prior_uni = dist.Uniform(  
         low=torch.max(x_sample - eps * (x_max - x_min).view(3, 1, 1), x_min.view(3, 1, 1)),
         high=torch.min(x_sample + eps * (x_max - x_min).view(3, 1, 1), x_max.view(3, 1, 1))
     )
@@ -295,10 +276,7 @@ def run_prob(x, y, model, eps, sample_id, distribute, GE):
     distribution = {"Uniform":prior_uni, "Normal": prior_norm, "Laplace":prior_lap}
 
     
-    # input = x_sample.view(1, 3, 224, 224)  # imagenet
-    input = x_sample.view(1, 3, 32, 32)  # CIFAR, SVHN
-    ## input = x_sample.view(1, 1, 28, 28)  # MNIST
-    ## input = x_sample.view(1, 3, 64, 64)    # Tiny-ImageNet
+    input = x_sample.view(1, 3, 32, 32)  
     s_x = prop(input).squeeze(-1)  
 
     if GE:
